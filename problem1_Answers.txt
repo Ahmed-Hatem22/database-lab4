@@ -1,77 +1,452 @@
 ================================================================================
-Database Systems Lab 3 - Problem 1 Answers
+Database Lab 4 - Problem 1: Search Queries in SQL & COMPANY Database
 Student Name: Ahmed Hatem
 Student ID: 2304158
+Course: Introduction to Database Systems - Alexandria National University
 ================================================================================
 
 --------------------------------------------------------------------------------
-Q1.1 Insert a row in the DEPARTMENT table that references a row in the EMPLOYEE 
-     table. Then try to delete the referenced row. What will happen?
+A. Change the data
 --------------------------------------------------------------------------------
 
-[SQL Used]
--- Step 1: Ensure an employee exists
-INSERT INTO EMPLOYEE (ssn, fname, lname, bdate, address, gender, salary, Dno)
-VALUES (104, 'Tarek', 'Mahmoud', '1995-02-10', 'Alexandria', 'M', 12000.00, NULL);
-
--- Step 2: Insert a department that references employee 104 as manager
-INSERT INTO DEPARTMENT (Dnumber, Dname, mgr_ssn, mgr_start_date)
-VALUES (4, 'Human Resources', 104, '2022-01-01');
-
--- Step 3: Try to delete the referenced employee row
-DELETE FROM EMPLOYEE WHERE ssn = 104;
-
-[Output / Error]
-ERROR 1451 (23000): Cannot delete or update a parent row: a foreign key constraint fails (`company`.`department`, CONSTRAINT `department_ibfk_1` FOREIGN KEY (`mgr_ssn`) REFERENCES `employee` (`ssn`))
-
-[Explanation]
-MySQL enforces referential integrity. Because DEPARTMENT has a foreign key constraint (mgr_ssn) referencing EMPLOYEE(ssn) with the default RESTRICT / NO ACTION rule, MySQL prevents deleting the parent record in EMPLOYEE as long as child records in DEPARTMENT still refer to it.
-
-
 --------------------------------------------------------------------------------
-Q1.2 Insert a row in the PROJECT table that references a row in the DEPARTMENT 
-     table that doesn't exist yet. What will happen?
+Q1.1 INSERT
 --------------------------------------------------------------------------------
+(1) SQL to insert a new employee in an existing department:
+INSERT INTO EMPLOYEE (ssn, fname, lname, bdate, address, gender, salary, super_ssn, Dno)
+VALUES (107, 'Salma', 'Said', '1996-03-10', '50 Miami St, Alexandria', 'F', 3800.00, 101, 1);
 
-[SQL Used]
--- Attempt to insert a project referencing non-existent department 999:
+(2) SQL to insert a new project of that department:
 INSERT INTO PROJECT (Pnumber, Pname, Plocation, Dno)
-VALUES (99, 'NextGen Satellite', 'Aswan', 999);
+VALUES (50, 'NewWebPlatform', 'Alexandria', 1);
 
-[Output / Error]
-ERROR 1452 (23000): Cannot add or update a child row: a foreign key constraint fails (`company`.`project`, CONSTRAINT `project_ibfk_1` FOREIGN KEY (`Dno`) REFERENCES `department` (`Dnumber`))
+(3) Show both rows with SELECT:
+SELECT * FROM EMPLOYEE WHERE ssn = 107;
+Output:
++-----+-------+-------+------------+-------------------------+--------+---------+-----------+-----+
+| ssn | fname | lname | bdate      | address                 | gender | salary  | super_ssn | Dno |
++-----+-------+-------+------------+-------------------------+--------+---------+-----------+-----+
+| 107 | Salma | Said  | 1996-03-10 | 50 Miami St, Alexandria | F      | 3800.00 |       101 |   1 |
++-----+-------+-------+------------+-------------------------+--------+---------+-----------+-----+
+1 row in set (0.00 sec)
 
-[Explanation]
-Referential integrity requires that foreign key values must either be NULL (if permitted) or correspond to an existing primary key value in the referenced parent table. Since department 999 does not exist in the DEPARTMENT table, the foreign key check fails and MySQL rejects the INSERT.
+SELECT * FROM PROJECT WHERE Pnumber = 50;
+Output:
++---------+----------------+------------+-----+
+| Pnumber | Pname          | Plocation  | Dno |
++---------+----------------+------------+-----+
+|      50 | NewWebPlatform | Alexandria |   1 |
++---------+----------------+------------+-----+
+1 row in set (0.00 sec)
+
+(4) Try to insert an employee whose Dno does not exist:
+INSERT INTO EMPLOYEE (ssn, fname, lname, bdate, address, gender, salary, super_ssn, Dno)
+VALUES (108, 'Tarek', 'Mahmoud', '1997-01-01', 'Alexandria', 'M', 3000.00, 101, 99);
+
+Error message:
+ERROR 1452 (23000): Cannot add or update a child row: a foreign key constraint fails
+(`company`.`employee`, CONSTRAINT `fk_emp_dept` FOREIGN KEY (`Dno`) REFERENCES `department` (`Dnumber`))
+
+Explanation:
+Because `Dno` is a foreign key referencing `DEPARTMENT(Dnumber)`, MySQL enforces referential
+integrity. Since no department with `Dnumber = 99` exists in the parent table `DEPARTMENT`,
+the insertion is rejected.
 
 
 --------------------------------------------------------------------------------
-Q1.3 If mgr_ssn and Dno are both NOT NULL, how will you insert the first row in 
-     EMPLOYEE or DEPARTMENT?
+Q1.2 UPDATE
+--------------------------------------------------------------------------------
+(a) Give a 10% raise to every employee of one department, then show the new salaries:
+UPDATE EMPLOYEE
+SET salary = salary * 1.10
+WHERE Dno = 1;
+
+SELECT ssn, fname, lname, salary, Dno
+FROM EMPLOYEE
+WHERE Dno = 1;
+
+Output:
++-----+---------+---------+---------+-----+
+| ssn | fname   | lname   | salary  | Dno |
++-----+---------+---------+---------+-----+
+| 101 | Ahmed   | Hassan  | 6050.00 |   1 |
+| 102 | Sara    | Ibrahim | 5280.00 |   1 |
+| 103 | Mohamed | Ali     | 3850.00 |   1 |
++-----+---------+---------+---------+-----+
+3 rows in set (0.00 sec)
+
+(b) Change the location of one project:
+UPDATE PROJECT
+SET Plocation = 'Giza'
+WHERE Pnumber = 30;
+
+SELECT Pnumber, Pname, Plocation, Dno
+FROM PROJECT
+WHERE Pnumber = 30;
+
+Output:
++---------+---------+-----------+-----+
+| Pnumber | Pname   | Plocation | Dno |
++---------+---------+-----------+-----+
+|      30 | ProductZ| Giza      |   2 |
++---------+---------+-----------+-----+
+1 row in set (0.00 sec)
+
+(c) Try to change the Dno of an employee to a department that does not exist:
+UPDATE EMPLOYEE
+SET Dno = 99
+WHERE ssn = 101;
+
+Error message:
+ERROR 1452 (23000): Cannot add or update a child row: a foreign key constraint fails
+(`company`.`employee`, CONSTRAINT `fk_emp_dept` FOREIGN KEY (`Dno`) REFERENCES `department` (`Dnumber`))
+
+Explanation:
+MySQL blocks the update because the value 99 violates the referential integrity constraint
+enforced by the foreign key `Dno` referencing `DEPARTMENT(Dnumber)`.
+
+
+--------------------------------------------------------------------------------
+Q1.3 DELETE
+--------------------------------------------------------------------------------
+(a) Delete one dependent and one WORKS_ON row:
+DELETE FROM DEPENDENT
+WHERE essn = 101 AND dependent_name = 'Mariam';
+-- Query OK, 1 row affected (0.00 sec)
+
+DELETE FROM WORKS_ON
+WHERE essn = 106 AND Pno = 20;
+-- Query OK, 1 row affected (0.00 sec)
+
+(b) Try to delete a department that still has employees:
+DELETE FROM DEPARTMENT
+WHERE Dnumber = 1;
+
+Error message:
+ERROR 1451 (23000): Cannot delete or update a parent row: a foreign key constraint fails
+(`company`.`employee`, CONSTRAINT `fk_emp_dept` FOREIGN KEY (`Dno`) REFERENCES `department` (`Dnumber`))
+
+Explanation & Order of changes:
+MySQL prevents deleting parent rows that are currently referenced by child records without CASCADE.
+To delete department 1, you must remove or reassign all references in the following order:
+1. Reassign or delete all employees referencing Dno = 1:
+   - If deleting employees, first delete their dependent records (`DEPENDENT`), their assigned projects (`WORKS_ON`),
+     and reassign any department managers (`mgr_ssn`) or supervisor references (`super_ssn`).
+   - Or simply reassign them: `UPDATE EMPLOYEE SET Dno = NULL WHERE Dno = 1;` (or assign to another department).
+2. Reassign or delete all projects referencing Dno = 1:
+   - First remove `WORKS_ON` rows for those projects: `DELETE FROM WORKS_ON WHERE Pno IN (SELECT Pnumber FROM PROJECT WHERE Dno = 1);`
+   - Then delete or reassign projects: `UPDATE PROJECT SET Dno = NULL WHERE Dno = 1;` or `DELETE FROM PROJECT WHERE Dno = 1;`
+3. Finally, delete the department: `DELETE FROM DEPARTMENT WHERE Dnumber = 1;`
+
+(c) Transaction demonstration:
+START TRANSACTION;
+DELETE FROM DEPENDENT;
+SELECT * FROM DEPENDENT;
+ROLLBACK;
+SELECT * FROM DEPENDENT;
+
+Output during transaction:
+Empty set (0.00 sec)
+
+Output after ROLLBACK:
++------+----------------+--------+------------+--------------+
+| essn | dependent_name | gender | bdate      | relationship |
++------+----------------+--------+------------+--------------+
+|  101 | Kareem         | M      | 2015-02-10 | Son          |
+|  102 | Nour           | F      | 2019-11-23 | Daughter     |
++------+----------------+--------+------------+--------------+
+2 rows in set (0.00 sec)
+
+Explanation:
+`DELETE FROM DEPENDENT;` without a `WHERE` clause removed all records from the `DEPENDENT` table
+within the temporary uncommitted transaction context.
+`ROLLBACK;` canceled the entire active transaction, restoring the database state to what it was
+before the transaction began. All deleted rows were fully restored.
+
+
+--------------------------------------------------------------------------------
+B. Search the data
 --------------------------------------------------------------------------------
 
-[SQL / Solution]
-When both foreign keys (DEPARTMENT.mgr_ssn and EMPLOYEE.Dno) are declared NOT NULL, a circular dependency occurs:
-- An EMPLOYEE cannot be inserted without an existing DEPARTMENT(Dnumber).
-- A DEPARTMENT cannot be inserted without an existing EMPLOYEE(ssn).
-Neither table can accept the first record while foreign key checks are active.
+--------------------------------------------------------------------------------
+Q1.4 WHERE, DISTINCT
+--------------------------------------------------------------------------------
+(a) First name, last name and salary of the employees who earn between 3000 and 6000
+    and live in a city of your data (use LIKE '%Alexandria%'), highest salary first:
 
-In MySQL, the standard way to resolve this is to temporarily disable foreign key checks, insert the mutually-dependent rows, and then re-enable foreign key checks:
+SELECT fname, lname, salary
+FROM EMPLOYEE
+WHERE salary BETWEEN 3000 AND 6000
+  AND address LIKE '%Alexandria%'
+ORDER BY salary DESC;
 
--- Step 1: Temporarily disable foreign key constraint enforcement
-SET FOREIGN_KEY_CHECKS = 0;
+Output:
++---------+---------+---------+
+| fname   | lname   | salary  |
++---------+---------+---------+
+| Ahmed   | Hassan  | 5500.00 |
+| Sara    | Ibrahim | 4800.00 |
+| Youssef | Nabil   | 4200.00 |
+| Mohamed | Ali     | 3500.00 |
+| Omar    | Khaled  | 3200.00 |
++---------+---------+---------+
+5 rows in set (0.00 sec)
 
--- Step 2: Insert the first employee referencing Department 1
-INSERT INTO EMPLOYEE (ssn, fname, lname, bdate, address, gender, salary, Dno)
-VALUES (1, 'Khaled', 'Nabil', '1991-04-12', 'Sidi Gaber, Alexandria', 'M', 18000.00, 1);
+(b) The employees that have no supervisor:
+SELECT ssn, fname, lname, salary, Dno
+FROM EMPLOYEE
+WHERE super_ssn IS NULL;
 
--- Step 3: Insert the first department referencing Employee 1 as manager
-INSERT INTO DEPARTMENT (Dnumber, Dname, mgr_ssn, mgr_start_date)
-VALUES (1, 'Headquarters', 1, '2020-01-01');
+Output:
++-----+-------+--------+---------+-----+
+| ssn | fname | lname  | salary  | Dno |
++-----+-------+--------+---------+-----+
+| 101 | Ahmed | Hassan | 5500.00 |   1 |
++-----+-------+--------+---------+-----+
+1 row in set (0.00 sec)
 
--- Step 4: Re-enable foreign key checks
-SET FOREIGN_KEY_CHECKS = 1;
+(c) The department numbers (Dno) that have at least one employee, each written once:
+SELECT DISTINCT Dno
+FROM EMPLOYEE
+WHERE Dno IS NOT NULL;
 
-[Alternative DDL Solution]
-Alternatively, define the schema by creating both tables without one of the foreign keys (e.g., without the foreign key on EMPLOYEE.Dno), insert the initial data, and then execute an ALTER TABLE statement to add the NOT NULL foreign key constraint:
-ALTER TABLE EMPLOYEE ADD FOREIGN KEY (Dno) REFERENCES DEPARTMENT(Dnumber);
+Output:
++-----+
+| Dno |
++-----+
+|   1 |
+|   2 |
+|   3 |
++-----+
+3 rows in set (0.00 sec)
+
+
+--------------------------------------------------------------------------------
+Q1.5 Aggregation
+--------------------------------------------------------------------------------
+In one query: the number of employees and the total, average, smallest and largest salary of the company:
+
+SELECT 
+    COUNT(*) AS employee_count,
+    SUM(salary) AS total_salary,
+    AVG(salary) AS average_salary,
+    MIN(salary) AS smallest_salary,
+    MAX(salary) AS largest_salary
+FROM EMPLOYEE;
+
+Output:
++----------------+--------------+----------------+-----------------+----------------+
+| employee_count | total_salary | average_salary | smallest_salary | largest_salary |
++----------------+--------------+----------------+-----------------+----------------+
+|              6 |     24000.00 |    4000.000000 |         2800.00 |        5500.00 |
++----------------+--------------+----------------+-----------------+----------------+
+1 row in set (0.00 sec)
+
+
+--------------------------------------------------------------------------------
+Q1.6 GROUP BY
+--------------------------------------------------------------------------------
+For each department number (Dno): the number of employees and their average salary:
+
+SELECT 
+    Dno,
+    COUNT(*) AS employee_count,
+    AVG(salary) AS average_salary
+FROM EMPLOYEE
+WHERE Dno IS NOT NULL
+GROUP BY Dno;
+
+Output:
++-----+----------------+----------------+
+| Dno | employee_count | average_salary |
++-----+----------------+----------------+
+|   1 |              3 |    4600.000000 |
+|   2 |              2 |    3000.000000 |
+|   3 |              1 |    4200.000000 |
++-----+----------------+----------------+
+3 rows in set (0.00 sec)
+
+
+--------------------------------------------------------------------------------
+Q1.7 HAVING
+--------------------------------------------------------------------------------
+(a) The departments that have more than 2 employees:
+SELECT Dno, COUNT(*) AS employee_count
+FROM EMPLOYEE
+WHERE Dno IS NOT NULL
+GROUP BY Dno
+HAVING COUNT(*) > 2;
+
+Output:
++-----+----------------+
+| Dno | employee_count |
++-----+----------------+
+|   1 |              3 |
++-----+----------------+
+1 row in set (0.00 sec)
+
+(b) Do the same, but count only the employees whose salary is above 3000:
+SELECT Dno, COUNT(*) AS employee_count
+FROM EMPLOYEE
+WHERE Dno IS NOT NULL
+  AND salary > 3000
+GROUP BY Dno
+HAVING COUNT(*) > 2;
+
+Output:
++-----+----------------+
+| Dno | employee_count |
++-----+----------------+
+|   1 |              3 |
++-----+----------------+
+1 row in set (0.00 sec)
+
+Explain in one sentence the difference between WHERE and HAVING:
+WHERE filters individual rows before grouping or aggregation occurs, whereas HAVING filters aggregated groups after the GROUP BY operation has taken place.
+
+
+--------------------------------------------------------------------------------
+Q1.8 JOIN
+--------------------------------------------------------------------------------
+The full name of every employee with the name of his or her department:
+
+SELECT 
+    CONCAT(e.fname, ' ', e.lname) AS full_name,
+    d.Dname AS department_name
+FROM EMPLOYEE e
+JOIN DEPARTMENT d ON e.Dno = d.Dnumber;
+
+Output:
++---------------+-----------------+
+| full_name     | department_name |
++---------------+-----------------+
+| Ahmed Hassan  | Research        |
+| Sara Ibrahim  | Research        |
+| Mohamed Ali   | Research        |
+| Mona Farouk   | Administration  |
+| Omar Khaled   | Administration  |
+| Youssef Nabil | Headquarters    |
++---------------+-----------------+
+6 rows in set (0.00 sec)
+
+
+--------------------------------------------------------------------------------
+Q1.9 JOIN of three tables
+--------------------------------------------------------------------------------
+For every WORKS_ON row: the last name of the employee, the name of the project and the hours:
+
+SELECT 
+    e.lname AS employee_lname,
+    p.Pname AS project_name,
+    w.hours
+FROM WORKS_ON w
+JOIN EMPLOYEE e ON w.essn = e.ssn
+JOIN PROJECT p ON w.Pno = p.Pnumber;
+
+Output:
++----------------+--------------+-------+
+| employee_lname | project_name | hours |
++----------------+--------------+-------+
+| Hassan         | ProductX     |  15.0 |
+| Hassan         | ProductY     |  20.0 |
+| Ibrahim        | ProductX     |  10.0 |
+| Ibrahim        | ProductY     |  12.0 |
+| Ali            | ProductX     |   8.0 |
+| Farouk         | ProductZ     |  10.0 |
+| Khaled         | ProductZ     |   8.0 |
+| Nabil          | ProductY     |   5.0 |
++----------------+--------------+-------+
+8 rows in set (0.00 sec)
+
+
+--------------------------------------------------------------------------------
+Q1.10 LEFT JOIN
+--------------------------------------------------------------------------------
+(a) Every department with its number of employees, including the departments that have 0:
+
+SELECT 
+    d.Dnumber,
+    d.Dname,
+    COUNT(e.ssn) AS employee_count
+FROM DEPARTMENT d
+LEFT JOIN EMPLOYEE e ON d.Dnumber = e.Dno
+GROUP BY d.Dnumber, d.Dname;
+
+Output:
++---------+-----------------+----------------+
+| Dnumber | Dname           | employee_count |
++---------+-----------------+----------------+
+|       1 | Research        |              3 |
+|       2 | Administration  |              2 |
+|       3 | Headquarters    |              1 |
+|       4 | Human Resources |              0 |
++---------+-----------------+----------------+
+4 rows in set (0.00 sec)
+
+(b) The projects that nobody works on:
+
+SELECT 
+    p.Pnumber,
+    p.Pname,
+    p.Plocation,
+    p.Dno
+FROM PROJECT p
+LEFT JOIN WORKS_ON w ON p.Pnumber = w.Pno
+WHERE w.essn IS NULL;
+
+Output:
++---------+-----------------+------------+-----+
+| Pnumber | Pname           | Plocation  | Dno |
++---------+-----------------+------------+-----+
+|      40 | Computerization | Alexandria |   3 |
++---------+-----------------+------------+-----+
+1 row in set (0.00 sec)
+
+
+--------------------------------------------------------------------------------
+Q1.11 Self join
+--------------------------------------------------------------------------------
+Every employee with the name of his or her supervisor:
+
+SELECT 
+    CONCAT(e.fname, ' ', e.lname) AS employee_name,
+    CONCAT(s.fname, ' ', s.lname) AS supervisor_name
+FROM EMPLOYEE e
+JOIN EMPLOYEE s ON e.super_ssn = s.ssn;
+
+Output:
++---------------+-----------------+
+| employee_name | supervisor_name |
++---------------+-----------------+
+| Sara Ibrahim  | Ahmed Hassan    |
+| Mohamed Ali   | Ahmed Hassan    |
+| Mona Farouk   | Sara Ibrahim    |
+| Omar Khaled   | Sara Ibrahim    |
+| Youssef Nabil | Mohamed Ali     |
++---------------+-----------------+
+5 rows in set (0.00 sec)
+
+
+--------------------------------------------------------------------------------
+Q1.12 JOIN + GROUP BY + HAVING
+--------------------------------------------------------------------------------
+For each project: its name and the total hours worked on it, only for the projects
+with more than 20 hours, largest total first:
+
+SELECT 
+    p.Pname AS project_name,
+    SUM(w.hours) AS total_hours
+FROM PROJECT p
+JOIN WORKS_ON w ON p.Pnumber = w.Pno
+GROUP BY p.Pnumber, p.Pname
+HAVING SUM(w.hours) > 20
+ORDER BY total_hours DESC;
+
+Output:
++--------------+-------------+
+| project_name | total_hours |
++--------------+-------------+
+| ProductY     |        37.0 |
+| ProductX     |        33.0 |
++--------------+-------------+
+2 rows in set (0.00 sec)

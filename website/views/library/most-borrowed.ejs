@@ -1,0 +1,97 @@
+<%- include('../partials/header', { title, libraryStyles }) %>
+<%- include('../partials/navbar') %>
+
+<main class="main-content library-content">
+  <div class="library-container">
+    <%- include('../partials/library-nav', { activeTab: 'most-borrowed' }) %>
+
+    <section class="library-hero">
+      <div>
+        <p class="library-eyebrow">F2.5 · POPULARITY RANKINGS (GROUP BY, ORDER BY, LIMIT)</p>
+        <h1 class="page-title">Most Borrowed</h1>
+        <p class="page-subtitle">The top 3 books by circulation count and the library's most frequent reader.</p>
+      </div>
+    </section>
+
+    <!-- (a) Top 3 Books -->
+    <section class="card library-section" aria-labelledby="top-books-heading">
+      <div class="library-section-heading">
+        <div>
+          <p class="library-eyebrow">TOP CIRCULATION</p>
+          <h2 id="top-books-heading">The 3 Books with the Most Loans</h2>
+        </div>
+        <div class="sql-code-pill">
+          <code>GROUP BY book_id ORDER BY COUNT(loan) DESC LIMIT 3</code>
+        </div>
+      </div>
+
+      <% if (topBooks.length) { %>
+        <div class="library-table-wrap">
+          <table class="library-table">
+            <thead>
+              <tr>
+                <th scope="col">Rank</th>
+                <th scope="col">Book #</th>
+                <th scope="col">Book Title</th>
+                <th scope="col">Total Loans</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% topBooks.forEach(function(book, idx) { %>
+                <tr>
+                  <td>
+                    <span class="rank-badge rank-<%= idx + 1 %>">
+                      <%= idx === 0 ? '🥇 1st' : (idx === 1 ? '🥈 2nd' : '🥉 3rd') %>
+                    </span>
+                  </td>
+                  <td><span class="library-id">#<%= book.book_id %></span></td>
+                  <td><strong><%= book.title %></strong></td>
+                  <td><span class="library-badge-success"><%= book.loan_count %> borrowings</span></td>
+                </tr>
+              <% }); %>
+            </tbody>
+          </table>
+        </div>
+      <% } else { %>
+        <p class="library-empty">No loan activity recorded yet.</p>
+      <% } %>
+    </section>
+
+    <!-- (b) Member with the most loans -->
+    <section class="card library-section" aria-labelledby="top-member-heading">
+      <div class="library-section-heading">
+        <div>
+          <p class="library-eyebrow">TOP BORROWER</p>
+          <h2 id="top-member-heading">The Member with the Most Loans</h2>
+        </div>
+        <div class="sql-code-pill">
+          <code>GROUP BY member_id ORDER BY COUNT(loan) DESC LIMIT 1</code>
+        </div>
+      </div>
+
+      <% if (topMember) { %>
+        <div class="top-member-card">
+          <div class="top-member-avatar">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+              <circle cx="12" cy="7" r="4"></circle>
+            </svg>
+          </div>
+          <div class="top-member-info">
+            <p class="top-member-name"><%= topMember.member_name %></p>
+            <p class="top-member-email"><%= topMember.email %></p>
+            <p class="top-member-meta">Member ID: #<%= topMember.member_id %></p>
+          </div>
+          <div class="top-member-badge">
+            <span class="badge-number"><%= topMember.loan_count %></span>
+            <span class="badge-label">Total Loans</span>
+          </div>
+        </div>
+      <% } else { %>
+        <p class="library-empty">No loans found.</p>
+      <% } %>
+    </section>
+  </div>
+</main>
+
+<%- include('../partials/footer') %>

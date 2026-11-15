@@ -1,0 +1,19 @@
+# Dependencies
+node_modules/
+website/node_modules/
+
+# Environment variables
+.env
+website/.env
+
+# Uploads
+website/public/uploads/library/*
+!website/public/uploads/library/.gitkeep
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS Files
+.DS_Store
+Thumbs.db

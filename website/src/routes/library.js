@@ -44,6 +44,23 @@ async function loadAuthors() {
   return authors;
 }
 
+async function loadCategories() {
+  try {
+    const [categories] = await db.execute(
+      'SELECT category_id, name FROM category ORDER BY category_id;',
+      []
+    );
+    return categories;
+  } catch (err) {
+    return [
+      { category_id: 1, name: 'Fiction' },
+      { category_id: 2, name: 'Classic Literature' },
+      { category_id: 3, name: 'History' },
+      { category_id: 4, name: 'Philosophy' }
+    ];
+  }
+}
+
 function validateAuthor(name, country) {
   const errors = [];
   if (typeof name !== 'string' || !name.trim()) errors.push('Author name is required.');
@@ -353,6 +370,251 @@ router.post('/library/authors/:id/delete', async (req, res, next) => {
       ...books.map(book => removeUploadedImage(book.cover_image))
     ]);
     return res.redirect('/library');
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ============================================================================
+// Lab 4 Routes: F2.1 to F2.6 (Search, Catalogue, Reports, Loans, Top & Nationality)
+// ============================================================================
+
+// F2.1 Search books (WHERE) + BONUS Prepared Statements
+router.get('/library/search', async (req, res, next) => {
+  try {
+    const { title, min_price, max_price, category_id } = req.query;
+    const categories = await loadCategories();
+
+    const conditions = [];
+    const params = [];
+
+    // Keyword filter using LIKE and placeholder ?
+    if (typeof title === 'string' && title.trim()) {
+      conditions.push('b.title LIKE ?');
+      params.push(`%${title.trim()}%`);
+    }
+
+    // Price filter: BETWEEN or >= / <= using placeholders ?
+    const minVal = min_price !== undefined && min_price !== '' && !isNaN(Number(min_price)) ? Number(min_price) : null;
+    const maxVal = max_price !== undefined && max_price !== '' && !isNaN(Number(max_price)) ? Number(max_price) : null;
+
+    if (minVal !== null && maxVal !== null) {
+      conditions.push('b.price BETWEEN ? AND ?');
+      params.push(minVal, maxVal);
+    } else if (minVal !== null) {
+      conditions.push('b.price >= ?');
+      params.push(minVal);
+    } else if (maxVal !== null) {
+      conditions.push('b.price <= ?');
+      params.push(maxVal);
+    }
+
+    // Category filter using placeholder ?
+    if (category_id && category_id !== 'all' && !isNaN(Number(category_id))) {
+      conditions.push('b.category_id = ?');
+      params.push(Number(category_id));
+    }
+
+    const whereClause = conditions.length ? 'WHERE ' + conditions.join(' AND ') : '';
+    const sql = `
+      SELECT b.book_id, b.title, b.price, b.publish_year,
+             a.name AS author_name,
+             p.name AS publisher_name,
+             c.name AS category_name,
+             b.cover_image
+      FROM book b
+      JOIN author a ON b.author_id = a.author_id
+      JOIN publisher p ON b.publisher_id = p.publisher_id
+      JOIN category c ON b.category_id = c.category_id
+      ${whereClause}
+      ORDER BY b.price ASC;
+    `;
+
+    const [books] = await db.execute(sql, params);
+
+    res.render('library/search', {
+      title: 'Search Books (F2.1) | EduStudy',
+      libraryStyles: true,
+      books,
+      categories,
+      query: req.query,
+      executedQuery: whereClause ? `SELECT ... FROM book ${whereClause} ORDER BY price ASC` : 'All Books (Cheapest First)'
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// F2.2 Catalogue (JOIN)
+router.get('/library/catalogue', async (req, res, next) => {
+  try {
+    const [books] = await db.execute(`
+      SELECT b.book_id, b.title, b.price, b.publish_year,
+             a.name AS author_name,
+             p.name AS publisher_name,
+             c.name AS category_name,
+             b.cover_image
+      FROM book b
+      JOIN author a ON b.author_id = a.author_id
+      JOIN publisher p ON b.publisher_id = p.publisher_id
+      JOIN category c ON b.category_id = c.category_id
+      ORDER BY b.book_id ASC;
+    `, []);
+
+    res.render('library/catalogue', {
+      title: 'Catalogue (F2.2) | EduStudy',
+      libraryStyles: true,
+      books
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// F2.3 Reports (GROUP BY, HAVING)
+router.get('/library/reports', async (req, res, next) => {
+  try {
+    const [categoryReports] = await db.execute(`
+      SELECT c.category_id, c.name AS category_name,
+             COUNT(b.book_id) AS book_count,
+             COALESCE(AVG(b.price), 0) AS average_price
+      FROM category c
+      LEFT JOIN book b ON c.category_id = b.category_id
+      GROUP BY c.category_id, c.name
+      ORDER BY c.category_id ASC;
+    `, []);
+
+    const [prolificAuthors] = await db.execute(`
+      SELECT a.author_id, a.name AS author_name, a.country,
+             COUNT(b.book_id) AS book_count
+      FROM author a
+      JOIN book b ON a.author_id = b.author_id
+      GROUP BY a.author_id, a.name, a.country
+      HAVING COUNT(b.book_id) >= 2
+      ORDER BY book_count DESC, a.name ASC;
+    `, []);
+
+    const [priceRows] = await db.execute(`
+      SELECT 
+          COALESCE(SUM(price), 0) AS total_price,
+          COALESCE(MIN(price), 0) AS smallest_price,
+          COALESCE(MAX(price), 0) AS largest_price
+      FROM book;
+    `, []);
+
+    res.render('library/reports', {
+      title: 'Reports (F2.3) | EduStudy',
+      libraryStyles: true,
+      categoryReports,
+      prolificAuthors,
+      priceStats: priceRows[0] || { total_price: 0, smallest_price: 0, largest_price: 0 }
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// F2.4 Loans (JOIN, LEFT JOIN)
+router.get('/library/loans', async (req, res, next) => {
+  try {
+    const [activeLoans] = await db.execute(`
+      SELECT l.loan_id, b.title AS book_title, m.name AS member_name, l.loan_date
+      FROM loan l
+      JOIN book b ON l.book_id = b.book_id
+      JOIN member m ON l.member_id = m.member_id
+      WHERE l.return_date IS NULL
+      ORDER BY l.loan_date ASC;
+    `, []);
+
+    const [membersWithoutLoans] = await db.execute(`
+      SELECT m.member_id, m.name AS member_name, m.email, m.join_date
+      FROM member m
+      LEFT JOIN loan l ON m.member_id = l.member_id
+      WHERE l.loan_id IS NULL
+      ORDER BY m.member_id ASC;
+    `, []);
+
+    const [booksNeverBorrowed] = await db.execute(`
+      SELECT b.book_id, b.title, b.price, b.publish_year
+      FROM book b
+      LEFT JOIN loan l ON b.book_id = l.book_id
+      WHERE l.loan_id IS NULL
+      ORDER BY b.book_id ASC;
+    `, []);
+
+    res.render('library/loans', {
+      title: 'Loans (F2.4) | EduStudy',
+      libraryStyles: true,
+      activeLoans,
+      membersWithoutLoans,
+      booksNeverBorrowed
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// F2.5 Most borrowed (GROUP BY, ORDER BY, LIMIT)
+router.get('/library/most-borrowed', async (req, res, next) => {
+  try {
+    const [topBooks] = await db.execute(`
+      SELECT b.book_id, b.title, COUNT(l.loan_id) AS loan_count
+      FROM book b
+      JOIN loan l ON b.book_id = l.book_id
+      GROUP BY b.book_id, b.title
+      ORDER BY loan_count DESC, b.book_id ASC
+      LIMIT 3;
+    `, []);
+
+    const [topMemberRows] = await db.execute(`
+      SELECT m.member_id, m.name AS member_name, m.email, COUNT(l.loan_id) AS loan_count
+      FROM member m
+      JOIN loan l ON m.member_id = l.member_id
+      GROUP BY m.member_id, m.name, m.email
+      ORDER BY loan_count DESC, m.member_id ASC
+      LIMIT 1;
+    `, []);
+
+    res.render('library/most-borrowed', {
+      title: 'Most Borrowed (F2.5) | EduStudy',
+      libraryStyles: true,
+      topBooks,
+      topMember: topMemberRows[0] || null
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// F2.6 Authors and books (LEFT JOIN, JOIN)
+router.get('/library/authors-books', async (req, res, next) => {
+  try {
+    const [authorBookCounts] = await db.execute(`
+      SELECT a.author_id, a.name AS author_name, a.country,
+             COUNT(b.book_id) AS book_count
+      FROM author a
+      LEFT JOIN book b ON a.author_id = b.author_id
+      GROUP BY a.author_id, a.name, a.country
+      ORDER BY a.author_id ASC;
+    `, []);
+
+    const [sameCountryBooks] = await db.execute(`
+      SELECT b.book_id, b.title,
+             a.name AS author_name, a.country AS author_country,
+             p.name AS publisher_name, p.country AS publisher_country
+      FROM book b
+      JOIN author a ON b.author_id = a.author_id
+      JOIN publisher p ON b.publisher_id = p.publisher_id
+      WHERE a.country = p.country
+      ORDER BY b.book_id ASC;
+    `, []);
+
+    res.render('library/authors-books', {
+      title: 'Authors & Books (F2.6) | EduStudy',
+      libraryStyles: true,
+      authorBookCounts,
+      sameCountryBooks
+    });
   } catch (err) {
     next(err);
   }

@@ -1,0 +1,80 @@
+<%- include('../partials/header', { title, libraryStyles }) %>
+<%- include('../partials/navbar') %>
+
+<main class="main-content library-content">
+  <div class="library-container">
+    <%- include('../partials/library-nav', { activeTab: 'catalogue' }) %>
+
+    <section class="library-hero">
+      <div>
+        <p class="library-eyebrow">F2.2 · FULL CATALOGUE (JOIN)</p>
+        <h1 class="page-title">Library Catalogue</h1>
+        <p class="page-subtitle">All books in the collection showing author name, publisher name, and category name via SQL JOINs.</p>
+      </div>
+      <div class="library-hero-actions">
+        <a class="btn btn-outline" href="/library/search">Search Catalogue</a>
+        <a class="btn btn-primary" href="/library/books/new">Add Book</a>
+      </div>
+    </section>
+
+    <section class="card library-section" aria-labelledby="catalogue-heading">
+      <div class="library-section-heading">
+        <div>
+          <p class="library-eyebrow">ALL TITLES</p>
+          <h2 id="catalogue-heading">Catalogue Books <span class="library-count"><%= books.length %></span></h2>
+        </div>
+        <div class="sql-code-pill" title="Query type">
+          <code>JOIN book + author + publisher + category</code>
+        </div>
+      </div>
+
+      <% if (books.length) { %>
+        <div class="library-table-wrap">
+          <table class="library-table">
+            <thead>
+              <tr>
+                <th scope="col">#</th>
+                <th scope="col">Title</th>
+                <th scope="col">Author</th>
+                <th scope="col">Publisher</th>
+                <th scope="col">Category</th>
+                <th scope="col">Publish Year</th>
+                <th scope="col">Price</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% books.forEach(function(book) { %>
+                <tr>
+                  <td><span class="library-id">#<%= book.book_id %></span></td>
+                  <td class="library-book-title">
+                    <div class="library-image-cell">
+                      <% if (book.cover_image) { %>
+                        <img class="library-thumbnail library-cover" src="/uploads/library/<%= book.cover_image %>" alt="Cover of <%= book.title %>">
+                      <% } else { %>
+                        <span class="library-image-placeholder" aria-hidden="true">BOOK</span>
+                      <% } %>
+                      <strong><%= book.title %></strong>
+                    </div>
+                  </td>
+                  <td>
+                    <span class="author-name-tag"><%= book.author_name %></span>
+                  </td>
+                  <td><%= book.publisher_name %></td>
+                  <td>
+                    <span class="library-category-badge"><%= book.category_name %></span>
+                  </td>
+                  <td><%= book.publish_year || '—' %></td>
+                  <td><strong class="price-highlight">$<%= Number(book.price).toFixed(2) %></strong></td>
+                </tr>
+              <% }); %>
+            </tbody>
+          </table>
+        </div>
+      <% } else { %>
+        <p class="library-empty">No books in the catalogue.</p>
+      <% } %>
+    </section>
+  </div>
+</main>
+
+<%- include('../partials/footer') %>

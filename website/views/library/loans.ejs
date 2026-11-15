@@ -1,0 +1,140 @@
+<%- include('../partials/header', { title, libraryStyles }) %>
+<%- include('../partials/navbar') %>
+
+<main class="main-content library-content">
+  <div class="library-container">
+    <%- include('../partials/library-nav', { activeTab: 'loans' }) %>
+
+    <section class="library-hero">
+      <div>
+        <p class="library-eyebrow">F2.4 · LOANS &amp; CIRCULATION (JOIN, LEFT JOIN)</p>
+        <h1 class="page-title">Library Loans</h1>
+        <p class="page-subtitle">Track active borrowings, inactive library members, and unborrowed inventory.</p>
+      </div>
+    </section>
+
+    <!-- (a) Unreturned Loans -->
+    <section class="card library-section" aria-labelledby="unreturned-heading">
+      <div class="library-section-heading">
+        <div>
+          <p class="library-eyebrow">PART A · ACTIVE LOANS</p>
+          <h2 id="unreturned-heading">Loans Not Returned Yet <span class="library-count"><%= activeLoans.length %></span></h2>
+        </div>
+        <div class="sql-code-pill">
+          <code>JOIN WHERE return_date IS NULL</code>
+        </div>
+      </div>
+
+      <% if (activeLoans.length) { %>
+        <div class="library-table-wrap">
+          <table class="library-table">
+            <thead>
+              <tr>
+                <th scope="col">Loan #</th>
+                <th scope="col">Book Title</th>
+                <th scope="col">Member Name</th>
+                <th scope="col">Loan Date</th>
+                <th scope="col">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% activeLoans.forEach(function(loan) { %>
+                <tr>
+                  <td><span class="library-id">#<%= loan.loan_id %></span></td>
+                  <td><strong><%= loan.book_title %></strong></td>
+                  <td><%= loan.member_name %></td>
+                  <td><%= new Date(loan.loan_date).toLocaleDateString() %></td>
+                  <td><span class="status-pill status-borrowed">Currently Borrowed</span></td>
+                </tr>
+              <% }); %>
+            </tbody>
+          </table>
+        </div>
+      <% } else { %>
+        <p class="library-empty">All loans have been returned!</p>
+      <% } %>
+    </section>
+
+    <!-- (b) Members who never borrowed a book -->
+    <section class="card library-section" aria-labelledby="inactive-members-heading">
+      <div class="library-section-heading">
+        <div>
+          <p class="library-eyebrow">PART B · LEFT JOIN WITH NULL</p>
+          <h2 id="inactive-members-heading">Members Who Never Borrowed a Book <span class="library-count"><%= membersWithoutLoans.length %></span></h2>
+        </div>
+        <div class="sql-code-pill">
+          <code>member LEFT JOIN loan WHERE loan_id IS NULL</code>
+        </div>
+      </div>
+
+      <% if (membersWithoutLoans.length) { %>
+        <div class="library-table-wrap">
+          <table class="library-table">
+            <thead>
+              <tr>
+                <th scope="col">Member #</th>
+                <th scope="col">Member Name</th>
+                <th scope="col">Email</th>
+                <th scope="col">Join Date</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% membersWithoutLoans.forEach(function(member) { %>
+                <tr>
+                  <td><span class="library-id">#<%= member.member_id %></span></td>
+                  <td><strong><%= member.member_name %></strong></td>
+                  <td><%= member.email %></td>
+                  <td><%= member.join_date ? new Date(member.join_date).toLocaleDateString() : '—' %></td>
+                </tr>
+              <% }); %>
+            </tbody>
+          </table>
+        </div>
+      <% } else { %>
+        <p class="library-empty">Every member has borrowed at least one book.</p>
+      <% } %>
+    </section>
+
+    <!-- (c) Books that were never borrowed -->
+    <section class="card library-section" aria-labelledby="unborrowed-books-heading">
+      <div class="library-section-heading">
+        <div>
+          <p class="library-eyebrow">PART C · LEFT JOIN WITH NULL</p>
+          <h2 id="unborrowed-books-heading">Books That Were Never Borrowed <span class="library-count"><%= booksNeverBorrowed.length %></span></h2>
+        </div>
+        <div class="sql-code-pill">
+          <code>book LEFT JOIN loan WHERE loan_id IS NULL</code>
+        </div>
+      </div>
+
+      <% if (booksNeverBorrowed.length) { %>
+        <div class="library-table-wrap">
+          <table class="library-table">
+            <thead>
+              <tr>
+                <th scope="col">Book #</th>
+                <th scope="col">Title</th>
+                <th scope="col">Price</th>
+                <th scope="col">Publish Year</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% booksNeverBorrowed.forEach(function(book) { %>
+                <tr>
+                  <td><span class="library-id">#<%= book.book_id %></span></td>
+                  <td><strong><%= book.title %></strong></td>
+                  <td>$<%= Number(book.price).toFixed(2) %></td>
+                  <td><%= book.publish_year || '—' %></td>
+                </tr>
+              <% }); %>
+            </tbody>
+          </table>
+        </div>
+      <% } else { %>
+        <p class="library-empty">All books in the library have been borrowed at least once.</p>
+      <% } %>
+    </section>
+  </div>
+</main>
+
+<%- include('../partials/footer') %>

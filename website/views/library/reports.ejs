@@ -1,0 +1,115 @@
+<%- include('../partials/header', { title, libraryStyles }) %>
+<%- include('../partials/navbar') %>
+
+<main class="main-content library-content">
+  <div class="library-container">
+    <%- include('../partials/library-nav', { activeTab: 'reports' }) %>
+
+    <section class="library-hero">
+      <div>
+        <p class="library-eyebrow">F2.3 · AGGREGATION &amp; GROUPING (GROUP BY, HAVING)</p>
+        <h1 class="page-title">Library Reports</h1>
+        <p class="page-subtitle">Category statistics, multi-book authors, and library-wide price analytics.</p>
+      </div>
+    </section>
+
+    <!-- (c) Library Price Summary (Metrics Grid) -->
+    <section class="library-metrics-section">
+      <div class="metrics-grid">
+        <div class="metric-card">
+          <p class="metric-label">Total Collection Value</p>
+          <p class="metric-value">$<%= Number(priceStats.total_price || 0).toFixed(2) %></p>
+          <span class="metric-hint">SUM(price) across all books</span>
+        </div>
+        <div class="metric-card">
+          <p class="metric-label">Smallest Book Price</p>
+          <p class="metric-value text-accent">$<%= Number(priceStats.smallest_price || 0).toFixed(2) %></p>
+          <span class="metric-hint">MIN(price) in library</span>
+        </div>
+        <div class="metric-card">
+          <p class="metric-label">Largest Book Price</p>
+          <p class="metric-value text-primary">$<%= Number(priceStats.largest_price || 0).toFixed(2) %></p>
+          <span class="metric-hint">MAX(price) in library</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- (a) Category Reports -->
+    <section class="card library-section" aria-labelledby="category-reports-heading">
+      <div class="library-section-heading">
+        <div>
+          <p class="library-eyebrow">REPORT A</p>
+          <h2 id="category-reports-heading">Books &amp; Average Price by Category</h2>
+        </div>
+        <div class="sql-code-pill">
+          <code>GROUP BY category_id, name</code>
+        </div>
+      </div>
+
+      <div class="library-table-wrap">
+        <table class="library-table">
+          <thead>
+            <tr>
+              <th scope="col">Category ID</th>
+              <th scope="col">Category Name</th>
+              <th scope="col">Number of Books</th>
+              <th scope="col">Average Price</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% categoryReports.forEach(function(row) { %>
+              <tr>
+                <td><span class="library-id">#<%= row.category_id %></span></td>
+                <td><strong><%= row.category_name %></strong></td>
+                <td><span class="library-count"><%= row.book_count %> books</span></td>
+                <td><strong>$<%= Number(row.average_price || 0).toFixed(2) %></strong></td>
+              </tr>
+            <% }); %>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- (b) Authors with >= 2 Books -->
+    <section class="card library-section" aria-labelledby="prolific-authors-heading">
+      <div class="library-section-heading">
+        <div>
+          <p class="library-eyebrow">REPORT B</p>
+          <h2 id="prolific-authors-heading">Authors Who Wrote at Least 2 Books</h2>
+        </div>
+        <div class="sql-code-pill">
+          <code>GROUP BY author HAVING COUNT(book) &gt;= 2</code>
+        </div>
+      </div>
+
+      <% if (prolificAuthors.length) { %>
+        <div class="library-table-wrap">
+          <table class="library-table">
+            <thead>
+              <tr>
+                <th scope="col">Author ID</th>
+                <th scope="col">Author Name</th>
+                <th scope="col">Country</th>
+                <th scope="col">Books Written</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% prolificAuthors.forEach(function(row) { %>
+                <tr>
+                  <td><span class="library-id">#<%= row.author_id %></span></td>
+                  <td><strong><%= row.author_name %></strong></td>
+                  <td><%= row.country || '—' %></td>
+                  <td><span class="library-badge-success"><%= row.book_count %> books</span></td>
+                </tr>
+              <% }); %>
+            </tbody>
+          </table>
+        </div>
+      <% } else { %>
+        <p class="library-empty">No authors with 2 or more books found.</p>
+      <% } %>
+    </section>
+  </div>
+</main>
+
+<%- include('../partials/footer') %>

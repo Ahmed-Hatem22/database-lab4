@@ -1,0 +1,110 @@
+<%- include('../partials/header', { title, libraryStyles }) %>
+<%- include('../partials/navbar') %>
+
+<main class="main-content library-content">
+  <div class="library-container">
+    <%- include('../partials/library-nav', { activeTab: 'authors-books' }) %>
+
+    <section class="library-hero">
+      <div>
+        <p class="library-eyebrow">F2.6 · AUTHORS &amp; NATIONALITY MATCHING (LEFT JOIN, JOIN)</p>
+        <h1 class="page-title">Authors and Books</h1>
+        <p class="page-subtitle">Track bibliography counts for all authors (including zero-book authors) and co-national publishing partnerships.</p>
+      </div>
+    </section>
+
+    <!-- (a) Authors with book counts, including 0 -->
+    <section class="card library-section" aria-labelledby="all-authors-heading">
+      <div class="library-section-heading">
+        <div>
+          <p class="library-eyebrow">PART A · AUTHOR BIBLIOGRAPHY</p>
+          <h2 id="all-authors-heading">All Authors and Their Book Counts <span class="library-count"><%= authorBookCounts.length %></span></h2>
+        </div>
+        <div class="sql-code-pill">
+          <code>author LEFT JOIN book GROUP BY author</code>
+        </div>
+      </div>
+
+      <% if (authorBookCounts.length) { %>
+        <div class="library-table-wrap">
+          <table class="library-table">
+            <thead>
+              <tr>
+                <th scope="col">Author #</th>
+                <th scope="col">Author Name</th>
+                <th scope="col">Country</th>
+                <th scope="col">Books Written</th>
+                <th scope="col">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% authorBookCounts.forEach(function(item) { %>
+                <tr>
+                  <td><span class="library-id">#<%= item.author_id %></span></td>
+                  <td><strong><%= item.author_name %></strong></td>
+                  <td><%= item.country %></td>
+                  <td>
+                    <strong><%= item.book_count %></strong> <%= item.book_count === 1 ? 'book' : 'books' %>
+                  </td>
+                  <td>
+                    <% if (item.book_count === 0) { %>
+                      <span class="status-pill status-zero">0 Books (Included via LEFT JOIN)</span>
+                    <% } else { %>
+                      <span class="status-pill status-active">Active Author</span>
+                    <% } %>
+                  </td>
+                </tr>
+              <% }); %>
+            </tbody>
+          </table>
+        </div>
+      <% } else { %>
+        <p class="library-empty">No authors in the database.</p>
+      <% } %>
+    </section>
+
+    <!-- (b) Same country books (author & publisher from same country) -->
+    <section class="card library-section" aria-labelledby="same-country-heading">
+      <div class="library-section-heading">
+        <div>
+          <p class="library-eyebrow">PART B · DOMESTIC COLLABORATION</p>
+          <h2 id="same-country-heading">Books Where Author and Publisher Share the Same Country <span class="library-count"><%= sameCountryBooks.length %></span></h2>
+        </div>
+        <div class="sql-code-pill">
+          <code>JOIN ON author.country = publisher.country</code>
+        </div>
+      </div>
+
+      <% if (sameCountryBooks.length) { %>
+        <div class="library-table-wrap">
+          <table class="library-table">
+            <thead>
+              <tr>
+                <th scope="col">Book #</th>
+                <th scope="col">Book Title</th>
+                <th scope="col">Author</th>
+                <th scope="col">Publisher</th>
+                <th scope="col">Shared Country</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% sameCountryBooks.forEach(function(row) { %>
+                <tr>
+                  <td><span class="library-id">#<%= row.book_id %></span></td>
+                  <td><strong><%= row.title %></strong></td>
+                  <td><%= row.author_name %></td>
+                  <td><%= row.publisher_name %></td>
+                  <td><span class="library-category-badge"><%= row.author_country %></span></td>
+                </tr>
+              <% }); %>
+            </tbody>
+          </table>
+        </div>
+      <% } else { %>
+        <p class="library-empty">No books match the condition.</p>
+      <% } %>
+    </section>
+  </div>
+</main>
+
+<%- include('../partials/footer') %>
