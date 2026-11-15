@@ -19,10 +19,22 @@ const mockCategories = [
   { category_id: 4, name: 'Philosophy' }
 ];
 
+const mockPublishers = [
+  { publisher_id: 1, name: 'Dar El Shorouk', country: 'Egypt' },
+  { publisher_id: 2, name: 'Penguin Books', country: 'England' },
+  { publisher_id: 3, name: 'HarperCollins', country: 'USA' },
+  { publisher_id: 4, name: 'Oxford University Press', country: 'England' }
+];
+
 libraryDb.execute = async (sql, params = []) => {
   // Category lookups
   if (sql.includes('FROM category ORDER BY')) {
     return [mockCategories, []];
+  }
+
+  // Publisher lookups
+  if (sql.includes('FROM publisher ORDER BY')) {
+    return [mockPublishers, []];
   }
 
   // F2.3 Reports queries
@@ -124,14 +136,14 @@ libraryDb.execute = async (sql, params = []) => {
     return [result, []];
   }
 
-  // Lab 3 queries
-  if (sql.startsWith('SELECT book_id, title, price, author_id, cover_image FROM book ORDER BY')) {
+  // Lab 3 & 4 Book queries
+  if (sql.startsWith('SELECT book_id, title, price, author_id, cover_image FROM book ORDER BY') || sql.startsWith('SELECT book_id, title, price, publish_year')) {
     return [[...books].sort((a, b) => a.book_id - b.book_id), []];
   }
   if (sql.startsWith('SELECT author_id, name, country, photo_image FROM author ORDER BY')) {
     return [[...authors].sort((a, b) => a.author_id - b.author_id), []];
   }
-  if (sql.startsWith('SELECT book_id, title, price, author_id, cover_image FROM book WHERE')) {
+  if (sql.startsWith('SELECT book_id, title, price, author_id, cover_image FROM book WHERE') || sql.startsWith('SELECT book_id, title, price, publish_year, author_id')) {
     return [books.filter(book => book.book_id === params[0]), []];
   }
   if (sql.startsWith('SELECT author_id, name, country, photo_image FROM author WHERE')) {
@@ -158,7 +170,12 @@ libraryDb.execute = async (sql, params = []) => {
     return [{ insertId: author.author_id, affectedRows: 1 }, []];
   }
   if (sql.startsWith('INSERT INTO book')) {
-    const book = { book_id: nextBookId++, title: params[0], price: params[1], author_id: params[2], cover_image: params[3] };
+    let book;
+    if (params.length === 7) {
+      book = { book_id: nextBookId++, title: params[0], price: params[1], publish_year: params[2], author_id: params[3], publisher_id: params[4], category_id: params[5], cover_image: params[6] };
+    } else {
+      book = { book_id: nextBookId++, title: params[0], price: params[1], author_id: params[2], cover_image: params[3] };
+    }
     books.push(book);
     return [{ insertId: book.book_id, affectedRows: 1 }, []];
   }
@@ -171,12 +188,21 @@ libraryDb.execute = async (sql, params = []) => {
     return [{ affectedRows: 1 }, []];
   }
   if (sql.startsWith('UPDATE book')) {
-    const book = books.find(item => item.book_id === params[4]);
+    const bookId = params[params.length - 1];
+    const book = books.find(item => item.book_id === bookId);
     if (!book) return [{ affectedRows: 0 }, []];
     book.title = params[0];
     book.price = params[1];
-    book.author_id = params[2];
-    book.cover_image = params[3] || book.cover_image;
+    if (params.length === 8) {
+      book.publish_year = params[2];
+      book.author_id = params[3];
+      book.publisher_id = params[4];
+      book.category_id = params[5];
+      book.cover_image = params[6] || book.cover_image;
+    } else {
+      book.author_id = params[2];
+      book.cover_image = params[3] || book.cover_image;
+    }
     return [{ affectedRows: 1 }, []];
   }
   if (sql.startsWith('DELETE FROM author')) {

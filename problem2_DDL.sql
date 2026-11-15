@@ -27,10 +27,10 @@ CREATE TABLE book (
     book_id INT NOT NULL AUTO_INCREMENT,
     title VARCHAR(200) NOT NULL,
     price DECIMAL(10, 2) NOT NULL,
-    publish_year INT,
+    publish_year INT DEFAULT 2024,
     author_id INT NOT NULL,
-    publisher_id INT NOT NULL,
-    category_id INT NOT NULL,
+    publisher_id INT NOT NULL DEFAULT 1,
+    category_id INT NOT NULL DEFAULT 1,
     cover_image VARCHAR(80),
     PRIMARY KEY (book_id),
     FOREIGN KEY (author_id) REFERENCES author(author_id)

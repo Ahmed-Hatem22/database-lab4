@@ -44,6 +44,23 @@ async function loadAuthors() {
   return authors;
 }
 
+async function loadPublishers() {
+  try {
+    const [publishers] = await db.execute(
+      'SELECT publisher_id, name, country FROM publisher ORDER BY name;',
+      []
+    );
+    return publishers;
+  } catch (err) {
+    return [
+      { publisher_id: 1, name: 'Dar El Shorouk', country: 'Egypt' },
+      { publisher_id: 2, name: 'Penguin Books', country: 'England' },
+      { publisher_id: 3, name: 'HarperCollins', country: 'USA' },
+      { publisher_id: 4, name: 'Oxford University Press', country: 'England' }
+    ];
+  }
+}
+
 async function loadCategories() {
   try {
     const [categories] = await db.execute(
@@ -91,10 +108,17 @@ router.get('/library', async (req, res, next) => {
 
 router.get('/library/books/new', async (req, res, next) => {
   try {
+    const [authors, publishers, categories] = await Promise.all([
+      loadAuthors(),
+      loadPublishers(),
+      loadCategories()
+    ]);
     res.render('library/book-form', {
       title: 'Add a Book | EduStudy',
       libraryStyles: true,
-      authors: await loadAuthors(),
+      authors,
+      publishers,
+      categories,
       book: null,
       errors: []
     });
@@ -104,26 +128,38 @@ router.get('/library/books/new', async (req, res, next) => {
 });
 
 router.post('/library/books', handleImageUpload, async (req, res, next) => {
-  const { title, price, author_id: authorId } = req.body;
+  const { title, price, author_id: authorId, publisher_id: pubId, category_id: catId, publish_year: pubYear } = req.body;
   const errors = validateBook(title, price, authorId);
   if (req.imageUploadError) errors.push(req.imageUploadError);
   const imageError = uploadedImageError(req.file);
   if (imageError) errors.push(imageError);
+
+  const publisherId = pubId && validId(pubId) ? Number(pubId) : 1;
+  const categoryId = catId && validId(catId) ? Number(catId) : 1;
+  const publishYear = pubYear && /^\d{4}$/.test(String(pubYear).trim()) ? Number(pubYear) : 2024;
+
   try {
     if (errors.length) {
+      const [authors, publishers, categories] = await Promise.all([
+        loadAuthors(),
+        loadPublishers(),
+        loadCategories()
+      ]);
       return res.status(400).render('library/book-form', {
         title: 'Add a Book | EduStudy',
         libraryStyles: true,
-        authors: await loadAuthors(),
-        book: { title, price, author_id: authorId },
+        authors,
+        publishers,
+        categories,
+        book: { title, price, author_id: authorId, publisher_id: publisherId, category_id: categoryId, publish_year: publishYear },
         errors
       });
     }
     const coverImage = await saveUploadedImage(req.file);
     try {
       await db.execute(
-        'INSERT INTO book (title, price, author_id, cover_image) VALUES (?, ?, ?, ?);',
-        [title.trim(), price.trim(), Number(authorId), coverImage]
+        'INSERT INTO book (title, price, publish_year, author_id, publisher_id, category_id, cover_image) VALUES (?, ?, ?, ?, ?, ?, ?);',
+        [title.trim(), price.trim(), publishYear, Number(authorId), publisherId, categoryId, coverImage]
       );
     } catch (err) {
       await removeUploadedImage(coverImage);
@@ -132,11 +168,18 @@ router.post('/library/books', handleImageUpload, async (req, res, next) => {
     return res.redirect('/library');
   } catch (err) {
     if (err.code === 'ER_NO_REFERENCED_ROW_2') {
+      const [authors, publishers, categories] = await Promise.all([
+        loadAuthors(),
+        loadPublishers(),
+        loadCategories()
+      ]);
       return res.status(400).render('library/book-form', {
         title: 'Add a Book | EduStudy',
         libraryStyles: true,
-        authors: await loadAuthors(),
-        book: { title, price, author_id: authorId },
+        authors,
+        publishers,
+        categories,
+        book: { title, price, author_id: authorId, publisher_id: publisherId, category_id: categoryId, publish_year: publishYear },
         errors: ['The selected author no longer exists. Choose an existing author.']
       });
     }
@@ -148,14 +191,21 @@ router.get('/library/books/:id/edit', async (req, res, next) => {
   if (!validId(req.params.id)) return res.sendStatus(404);
   try {
     const [rows] = await db.execute(
-      'SELECT book_id, title, price, author_id, cover_image FROM book WHERE book_id = ?;',
+      'SELECT book_id, title, price, publish_year, author_id, publisher_id, category_id, cover_image FROM book WHERE book_id = ?;',
       [Number(req.params.id)]
     );
     if (!rows.length) return res.sendStatus(404);
+    const [authors, publishers, categories] = await Promise.all([
+      loadAuthors(),
+      loadPublishers(),
+      loadCategories()
+    ]);
     return res.render('library/book-form', {
       title: 'Edit a Book | EduStudy',
       libraryStyles: true,
-      authors: await loadAuthors(),
+      authors,
+      publishers,
+      categories,
       book: rows[0],
       errors: []
     });
@@ -166,8 +216,12 @@ router.get('/library/books/:id/edit', async (req, res, next) => {
 
 router.post('/library/books/:id/edit', handleImageUpload, async (req, res, next) => {
   if (!validId(req.params.id)) return res.sendStatus(404);
-  const { title, price, author_id: authorId } = req.body;
-  const book = { book_id: Number(req.params.id), title, price, author_id: authorId };
+  const { title, price, author_id: authorId, publisher_id: pubId, category_id: catId, publish_year: pubYear } = req.body;
+  const publisherId = pubId && validId(pubId) ? Number(pubId) : 1;
+  const categoryId = catId && validId(catId) ? Number(catId) : 1;
+  const publishYear = pubYear && /^\d{4}$/.test(String(pubYear).trim()) ? Number(pubYear) : 2024;
+
+  const book = { book_id: Number(req.params.id), title, price, publish_year: publishYear, author_id: authorId, publisher_id: publisherId, category_id: categoryId };
   const errors = validateBook(title, price, authorId);
   if (req.imageUploadError) errors.push(req.imageUploadError);
   const imageError = uploadedImageError(req.file);
@@ -181,10 +235,17 @@ router.post('/library/books/:id/edit', handleImageUpload, async (req, res, next)
     book.cover_image = existingRows[0].cover_image;
     const previousCoverImage = existingRows[0].cover_image;
     if (errors.length) {
+      const [authors, publishers, categories] = await Promise.all([
+        loadAuthors(),
+        loadPublishers(),
+        loadCategories()
+      ]);
       return res.status(400).render('library/book-form', {
         title: 'Edit a Book | EduStudy',
         libraryStyles: true,
-        authors: await loadAuthors(),
+        authors,
+        publishers,
+        categories,
         book,
         errors
       });
@@ -193,8 +254,8 @@ router.post('/library/books/:id/edit', handleImageUpload, async (req, res, next)
     let result;
     try {
       [result] = await db.execute(
-        'UPDATE book SET title = ?, price = ?, author_id = ?, cover_image = COALESCE(?, cover_image) WHERE book_id = ?;',
-        [title.trim(), price.trim(), Number(authorId), coverImage, Number(req.params.id)]
+        'UPDATE book SET title = ?, price = ?, publish_year = ?, author_id = ?, publisher_id = ?, category_id = ?, cover_image = COALESCE(?, cover_image) WHERE book_id = ?;',
+        [title.trim(), price.trim(), publishYear, Number(authorId), publisherId, categoryId, coverImage, Number(req.params.id)]
       );
     } catch (err) {
       await removeUploadedImage(coverImage);
@@ -208,10 +269,17 @@ router.post('/library/books/:id/edit', handleImageUpload, async (req, res, next)
     return res.redirect('/library');
   } catch (err) {
     if (err.code === 'ER_NO_REFERENCED_ROW_2') {
+      const [authors, publishers, categories] = await Promise.all([
+        loadAuthors(),
+        loadPublishers(),
+        loadCategories()
+      ]);
       return res.status(400).render('library/book-form', {
         title: 'Edit a Book | EduStudy',
         libraryStyles: true,
-        authors: await loadAuthors(),
+        authors,
+        publishers,
+        categories,
         book,
         errors: ['The selected author no longer exists. Choose an existing author.']
       });

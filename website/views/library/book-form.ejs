@@ -6,8 +6,8 @@
     <a class="library-back-link" href="/library">&larr; Back to library</a>
     <section class="card library-form-card">
       <p class="library-eyebrow">LIBRARY COLLECTION</p>
-      <h1 class="page-title"><%= book ? 'Edit book' : 'Add a book' %></h1>
-      <p class="page-subtitle">Enter the book details and select its author.</p>
+      <h1 class="page-title"><%= book && book.book_id ? 'Edit book' : 'Add a book' %></h1>
+      <p class="page-subtitle">Enter the book details, publication metadata, and select its author, publisher, and category.</p>
 
       <% if (errors.length) { %>
         <div class="library-alert" role="alert">
@@ -15,29 +15,66 @@
         </div>
       <% } %>
 
-      <form action="<%= book ? `/library/books/${book.book_id}/edit` : '/library/books' %>" method="POST" enctype="multipart/form-data" class="library-form">
+      <form action="<%= (book && book.book_id) ? `/library/books/${book.book_id}/edit` : '/library/books' %>" method="POST" enctype="multipart/form-data" class="library-form">
         <label class="form-group">
           <span class="form-label">Book title</span>
           <input class="form-input" type="text" name="title" maxlength="200" required value="<%= book ? book.title : '' %>">
         </label>
-        <label class="form-group">
-          <span class="form-label">Price</span>
-          <input class="form-input" type="number" name="price" min="0" max="99999999.99" step="0.01" required value="<%= book ? Number(book.price).toFixed(2) : '' %>">
-        </label>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+          <label class="form-group">
+            <span class="form-label">Price ($)</span>
+            <input class="form-input" type="number" name="price" min="0" max="99999999.99" step="0.01" required value="<%= book && book.price ? Number(book.price).toFixed(2) : '' %>">
+          </label>
+
+          <label class="form-group">
+            <span class="form-label">Publish Year</span>
+            <input class="form-input" type="number" name="publish_year" min="1000" max="2100" value="<%= book && book.publish_year ? book.publish_year : 2024 %>">
+          </label>
+        </div>
+
         <label class="form-group">
           <span class="form-label">Author</span>
           <select class="form-input" name="author_id" required>
             <option value="">Choose an author</option>
-            <% authors.forEach(function(author) { %>
-              <option value="<%= author.author_id %>" <%= book && String(book.author_id) === String(author.author_id) ? 'selected' : '' %>><%= author.name %> (#<%= author.author_id %>)</option>
+            <% (authors || []).forEach(function(author) { %>
+              <option value="<%= author.author_id %>" <%= book && String(book.author_id) === String(author.author_id) ? 'selected' : '' %>>
+                <%= author.name %> (<%= author.country %>)
+              </option>
             <% }); %>
           </select>
-          <% if (!authors.length) { %><span class="library-field-note">Add an author before creating a book.</span><% } %>
+          <% if (!authors || !authors.length) { %><span class="library-field-note">Add an author before creating a book.</span><% } %>
         </label>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+          <label class="form-group">
+            <span class="form-label">Publisher</span>
+            <select class="form-input" name="publisher_id">
+              <% (publishers || []).forEach(function(pub) { %>
+                <option value="<%= pub.publisher_id %>" <%= book && String(book.publisher_id) === String(pub.publisher_id) ? 'selected' : '' %>>
+                  <%= pub.name %> (<%= pub.country %>)
+                </option>
+              <% }); %>
+            </select>
+          </label>
+
+          <label class="form-group">
+            <span class="form-label">Category</span>
+            <select class="form-input" name="category_id">
+              <% (categories || []).forEach(function(cat) { %>
+                <option value="<%= cat.category_id %>" <%= book && String(book.category_id) === String(cat.category_id) ? 'selected' : '' %>>
+                  <%= cat.name %>
+                </option>
+              <% }); %>
+            </select>
+          </label>
+        </div>
+
         <label class="form-group">
           <span class="form-label">Book cover <span class="library-field-note">(optional, JPEG / PNG / WebP, up to 5 MB)</span></span>
           <input class="form-input library-file-input" type="file" name="image" accept="image/jpeg,image/png,image/webp">
         </label>
+
         <% if (book && book.cover_image) { %>
           <div class="library-current-image">
             <span class="form-label">Current cover</span>
@@ -45,9 +82,10 @@
             <span class="library-field-note">Choose a new image to replace it. Leave the upload empty to keep this cover.</span>
           </div>
         <% } %>
+
         <div class="library-form-actions">
           <a class="btn btn-outline" href="/library">Cancel</a>
-          <button class="btn btn-primary" type="submit" <%= authors.length ? '' : 'disabled' %>><%= book ? 'Save changes' : 'Add book' %></button>
+          <button class="btn btn-primary" type="submit" <%= (authors && authors.length) ? '' : 'disabled' %>><%= book && book.book_id ? 'Save changes' : 'Add book' %></button>
         </div>
       </form>
     </section>
